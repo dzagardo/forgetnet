@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
-Name: my-dp-model-package
-Version: 0.1.0
+Name: forgetnet
+Version: 0.1.2
 Summary: A package for applying differential privacy to model weights
 Home-page: https://github.com/dzagardo/forgetnet
 Author: David Zagardo

@@ -1,8 +1,0 @@
-LICENSE
-README.md
-setup.py
-my_dp_model_package.egg-info/PKG-INFO
-my_dp_model_package.egg-info/SOURCES.txt
-my_dp_model_package.egg-info/dependency_links.txt
-my_dp_model_package.egg-info/requires.txt
-my_dp_model_package.egg-info/top_level.txt

@@ -1,0 +1,10 @@
+LICENSE
+README.md
+setup.py
+forgetnet/__init__.py
+forgetnet/dpweights.py
+forgetnet.egg-info/PKG-INFO
+forgetnet.egg-info/SOURCES.txt
+forgetnet.egg-info/dependency_links.txt
+forgetnet.egg-info/requires.txt
+forgetnet.egg-info/top_level.txt
