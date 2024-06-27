@@ -58,6 +58,18 @@ class DifferentialPrivacyWeights:
         )
 
         for name, param in model.named_parameters():
-            noise = np.random.normal(0, noise_scale, param.data.cpu().numpy().shape)
-            noisy_weights = param.data.cpu().numpy() + noise
-            param.data.copy_(torch.tensor(noisy_weights).to(param.device))
+            # Get the original dtype and device
+            original_dtype = param.dtype
+            original_device = param.device
+
+            # Convert to float32 for noise application
+            param_float = param.data.float()
+
+            # Generate noise directly on the correct device
+            noise = torch.normal(0, noise_scale, param_float.shape).to(original_device)
+
+            # Apply noise
+            noisy_weights = param_float + noise
+
+            # Convert back to the original dtype and update the parameter
+            param.data.copy_(noisy_weights.to(original_dtype))
