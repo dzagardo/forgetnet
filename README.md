@@ -22,7 +22,7 @@ pip install forgetnet
 ## 🚀 Quick Start
 
 ```python
-from forgetnet import DPBloGSTrainer
+from forgetnet import BloGSSFTTrainer
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 # Load your model and tokenizer
@@ -30,12 +30,13 @@ model = AutoModelForCausalLM.from_pretrained("gpt2")
 tokenizer = AutoTokenizer.from_pretrained("gpt2")
 
 # Initialize the DP-BloGS trainer
-trainer = DPBloGSTrainer(
+trainer = BloGSSFTTrainer(
     model=model,
     args=training_args,
     train_dataset=train_dataset,
     eval_dataset=eval_dataset,
     tokenizer=tokenizer,
+    dataset_text_field="text",
     target_epsilon=1.0,
     delta=1e-5,
     clip_value=1.0
