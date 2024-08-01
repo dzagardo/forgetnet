@@ -4,7 +4,7 @@ from trl import SFTTrainer
 from typing import Dict, Any
 from .dp.dp_shuffle import DPShuffleGenerator
 
-class DPBloGSTrainer(SFTTrainer):
+class BloGSSFTTrainer(SFTTrainer):
     def __init__(self, *args, **kwargs):
         self.target_epsilon = kwargs.pop('target_epsilon', 1.0)
         self.delta = kwargs.pop('delta', 1e-5)
