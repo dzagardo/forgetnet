@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: forgetnet
-Version: 0.1.3
+Version: 0.1.4
 Summary: A package for applying differential privacy to model weights
 Home-page: https://github.com/dzagardo/forgetnet
 Author: David Zagardo

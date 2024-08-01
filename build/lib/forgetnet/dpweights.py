@@ -31,21 +31,7 @@ class DifferentialPrivacyWeights:
         return noise_scale
 
     @staticmethod
-    def apply_noise(model, noise_scale_fn, epsilon, delta, clipping_norm, dataset_size, batch_size, num_epochs, learning_rate=5e-5, **kwargs):
-        """
-        Apply noise to all weights of the model for differential privacy.
-        
-        Parameters:
-        - model: The PyTorch model to apply noise to
-        - noise_scale_fn: Function to calculate the noise scale
-        - epsilon: Privacy budget
-        - delta: Probability of not preserving privacy
-        - clipping_norm: The norm to which gradients are clipped
-        - dataset_size: Size of the dataset used for training
-        - batch_size: Size of the batches used during training
-        - num_epochs: Number of epochs used during training
-        - learning_rate: Learning rate used during training
-        """
+    def apply_noise(model_or_params, noise_scale_fn, epsilon, delta, clipping_norm, dataset_size, batch_size, num_epochs, learning_rate=5e-5, lora_config=None, **kwargs):
         noise_scale = noise_scale_fn(
             epsilon=epsilon, 
             delta=delta, 
@@ -57,19 +43,20 @@ class DifferentialPrivacyWeights:
             **kwargs
         )
 
-        for name, param in model.named_parameters():
-            # Get the original dtype and device
+        if isinstance(model_or_params, (list, torch.nn.ParameterList)):
+            params_to_noise = model_or_params
+        else:
+            if lora_config:
+                # If LoRA config is provided, only apply noise to LoRA parameters
+                params_to_noise = [p for n, p in model_or_params.named_parameters() if 'lora' in n]
+            else:
+                params_to_noise = model_or_params.parameters()
+
+        for param in params_to_noise:
             original_dtype = param.dtype
             original_device = param.device
 
-            # Convert to float32 for noise application
             param_float = param.data.float()
-
-            # Generate noise directly on the correct device
             noise = torch.normal(0, noise_scale, param_float.shape).to(original_device)
-
-            # Apply noise
             noisy_weights = param_float + noise
-
-            # Convert back to the original dtype and update the parameter
             param.data.copy_(noisy_weights.to(original_dtype))
