@@ -11,3 +11,5 @@ forgetnet.egg-info/dependency_links.txt
 forgetnet.egg-info/entry_points.txt
 forgetnet.egg-info/requires.txt
 forgetnet.egg-info/top_level.txt
+forgetnet/dp/__init__.py
+forgetnet/dp/dp_shuffle.py
