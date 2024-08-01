@@ -1,41 +1,15 @@
 # forgetnet/trainer.py
 import torch
 from trl import SFTTrainer
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from .dp.dp_shuffle import DPShuffleGenerator
 
 class DPBloGSTrainer(SFTTrainer):
-    def __init__(
-        self,
-        model: torch.nn.Module,
-        args: Any,
-        train_dataset: Optional[torch.utils.data.Dataset] = None,
-        eval_dataset: Optional[torch.utils.data.Dataset] = None,
-        tokenizer: Optional[Any] = None,
-        data_collator: Optional[Any] = None,
-        compute_metrics: Optional[Any] = None,
-        optimizers: Optional[Any] = (None, None),
-        callbacks: Optional[Any] = None,
-        target_epsilon: float = 1.0,
-        delta: float = 1e-5,
-        clip_value: float = 1.0,
-        **kwargs
-    ):
-        super().__init__(
-            model=model,
-            args=args,
-            train_dataset=train_dataset,
-            eval_dataset=eval_dataset,
-            tokenizer=tokenizer,
-            data_collator=data_collator,
-            compute_metrics=compute_metrics,
-            optimizers=optimizers,
-            callbacks=callbacks,
-        )
-        
-        self.target_epsilon = target_epsilon
-        self.delta = delta
-        self.clip_value = clip_value
+    def __init__(self, *args, **kwargs):
+        self.target_epsilon = kwargs.pop('target_epsilon', 1.0)
+        self.delta = kwargs.pop('delta', 1e-5)
+        self.clip_value = kwargs.pop('clip_value', 1.0)
+        super().__init__(*args, **kwargs)
         self.privacy_engine = self._create_privacy_engine()
         self.steps = 0
 

@@ -14,13 +14,14 @@ class DPBloGSTrainer(SFTTrainer):
         self.steps = 0
 
     def _create_privacy_engine(self):
+        effective_batch_size = self.args.train_batch_size * self.args.gradient_accumulation_steps
         return DPShuffleGenerator(
             model=self.model,
             target_epsilon=self.target_epsilon,
             delta=self.delta,
-            steps=self.args.num_train_epochs * (len(self.train_dataset) // self.args.train_batch_size),
+            steps=self.args.num_train_epochs * (len(self.train_dataset) // effective_batch_size),
             clip_value=self.clip_value,
-            batch_size=self.args.train_batch_size
+            batch_size=effective_batch_size
         )
 
     def training_step(self, model: torch.nn.Module, inputs: Dict[str, Any]) -> torch.Tensor:
@@ -35,12 +36,13 @@ class DPBloGSTrainer(SFTTrainer):
 
         loss.backward()
 
-        with torch.no_grad():
-            grads = [p.grad for p in model.parameters() if p.grad is not None]
-            private_grads = self.privacy_engine.apply(grads)
-            for param, private_grad in zip(model.parameters(), private_grads):
-                if param.grad is not None:
-                    param.grad.copy_(private_grad)
+        if (self.steps + 1) % self.args.gradient_accumulation_steps == 0:
+            with torch.no_grad():
+                grads = [p.grad for p in model.parameters() if p.grad is not None]
+                private_grads = self.privacy_engine.apply(grads)
+                for param, private_grad in zip(model.parameters(), private_grads):
+                    if param.grad is not None:
+                        param.grad.copy_(private_grad)
 
         self.steps += 1
         return loss.detach()
