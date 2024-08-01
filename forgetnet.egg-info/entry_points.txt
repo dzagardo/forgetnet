@@ -1,0 +1,2 @@
+[forgetnet.privacy_mechanisms]
+dpshuffle = forgetnet.dp.dp_shuffle:DPShuffleGenerator

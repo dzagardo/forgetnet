@@ -1,7 +1,7 @@
 Metadata-Version: 2.1
 Name: forgetnet
-Version: 0.1.4
-Summary: A package for applying differential privacy to model weights
+Version: 0.1.5
+Summary: A package for applying differential privacy to model training using block-level gradient shuffling
 Home-page: https://github.com/dzagardo/forgetnet
 Author: David Zagardo
 Author-email: dave@greenwillowstudios.com
@@ -12,41 +12,106 @@ Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
 
-# forgetnet
+# 🛡️ ForgetNet: Differentially Private Block-wise Gradient Shuffle for Deep Learning 🧠
 
-A package for applying differential privacy to model weights.
+[![PyPI version](https://badge.fury.io/py/forgetnet.svg)](https://badge.fury.io/py/forgetnet)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Installation
+ForgetNet introduces a novel privacy-preserving technique for deep learning: Differentially Private Block-wise Gradient Shuffle (DP-BloGS). 🔒🔀
 
-```bash
+## 🌟 Features
+
+- 🚀 Fast training times, close to non-private training
+- 🎯 Competitive privacy guarantees compared to DP-SGD
+- 📊 Better privacy-utility trade-off in many scenarios
+- 🏋️ Scalable to large models (tested up to 1.1 billion parameters)
+- 🧮 Parameter-wise privacy budget allocation
+
+## 📦 Installation
+
+```
 pip install forgetnet
 ```
-```
-from forgetnet.dp_weights import calculate_noise_scale_poly, apply_noise_to_all_weights
 
-```
+## 🚀 Quick Start
 
-# Example usage
-```
-model = ...  # Your PyTorch model
-epsilon = 1.0
-delta = 1e-5
-clipping_norm = 1.0
-dataset_size = 10000
-batch_size = 32
-num_epochs = 10
-learning_rate = 0.001
+```python
+from forgetnet import DPBloGSTrainer
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
-apply_noise_to_all_weights(
-    model, 
-    calculate_noise_scale_poly, 
-    epsilon, 
-    delta, 
-    clipping_norm, 
-    dataset_size, 
-    batch_size, 
-    num_epochs, 
-    learning_rate
+# Load your model and tokenizer
+model = AutoModelForCausalLM.from_pretrained("gpt2")
+tokenizer = AutoTokenizer.from_pretrained("gpt2")
+
+# Initialize the DP-BloGS trainer
+trainer = DPBloGSTrainer(
+    model=model,
+    args=training_args,
+    train_dataset=train_dataset,
+    eval_dataset=eval_dataset,
+    tokenizer=tokenizer,
+    target_epsilon=1.0,
+    delta=1e-5,
+    clip_value=1.0
 )
 
+# Train your model with privacy guarantees
+trainer.train()
 ```
+
+## 📚 How It Works
+
+DP-BloGS introduces a probabilistic approach to gradient noise through block-wise shuffling:
+
+1. 📊 Divide gradients into blocks
+2. 🔀 Shuffle blocks randomly
+3. 📏 Apply parameter-specific block sizes
+4. ✂️ Use batch layer clipping
+5. 🧮 Accumulate gradients
+
+This combination allows for fast training while maintaining strong privacy guarantees!
+
+## 📈 Performance
+
+DP-BloGS has been tested on various model architectures, including:
+
+- GPT-2 (124M)
+- BERT (110M)
+- OPT (350M)
+- BLOOM (560M)
+- TinyLlama (1.1B)
+
+Results show competitive or better performance compared to DP-SGD in terms of:
+
+- 🏃‍♂️ Training speed
+- 🎭 Privacy guarantees
+- 📊 Model utility
+
+## 📄 Citation
+
+If you use ForgetNet in your research, please cite my paper:
+
+```bibtex
+@article{zagardo2024dpblogs,
+  title={Differentially Private Block-wise Gradient Shuffle for Deep Learning},
+  author={Zagardo, David},
+  journal={arXiv preprint arXiv:2024.XXXXX},
+  year={2024}
+}
+```
+
+## 🤝 Contributing
+
+We welcome contributions! Please see my [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started.
+
+## 📜 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgements
+
+We thank the open-source community and the authors of the papers cited in our work for their valuable contributions to the field of privacy-preserving machine learning.
+
+---
+
+Built with 🧠 by David Zagardo
