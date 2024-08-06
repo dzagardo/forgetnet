@@ -57,7 +57,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torchvision.models import resnet18
 from torch.utils.data import DataLoader
-from forgetnet import PrivacyEngine
+from forgetnet import BloGSPrivacyEngine
 
 # Modify ResNet18 for MNIST (1 channel input instead of 3)
 def mnist_resnet18():
@@ -95,7 +95,7 @@ model = mnist_resnet18().to(device)
 optimizer = optim.SGD(model.parameters(), lr=learning_rate)
 
 # Wrap the optimizer with the PrivacyEngine
-privacy_engine = PrivacyEngine(
+privacy_engine = BloGSPrivacyEngine(
     optimizer=optimizer,
     model=model,
     target_epsilon=target_epsilon,
