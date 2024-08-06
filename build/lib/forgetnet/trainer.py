@@ -9,6 +9,7 @@ class BloGSSFTTrainer(SFTTrainer):
         self.target_epsilon = kwargs.pop('target_epsilon', 1.0)
         self.delta = kwargs.pop('delta', 1e-5)
         self.clip_value = kwargs.pop('clip_value', 1.0)
+        self.neftune_noise_alpha = kwargs.pop('neftune_noise_alpha', None)
         super().__init__(*args, **kwargs)
         self.privacy_engine = self._create_privacy_engine()
         self.steps = 0
