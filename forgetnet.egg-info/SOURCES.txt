@@ -4,6 +4,7 @@ setup.py
 forgetnet/__init__.py
 forgetnet/core.py
 forgetnet/dpweights.py
+forgetnet/privacy_engine.py
 forgetnet/trainer.py
 forgetnet.egg-info/PKG-INFO
 forgetnet.egg-info/SOURCES.txt

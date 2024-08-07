@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: forgetnet
-Version: 0.1.10
+Version: 0.1.11
 Summary: A package for applying differential privacy to model training using block-level gradient shuffling
 Home-page: https://github.com/dzagardo/forgetnet
 Author: David Zagardo
@@ -33,7 +33,7 @@ ForgetNet introduces a novel privacy-preserving technique for deep learning: Dif
 pip install forgetnet
 ```
 
-## 🚀 Quick Start
+## 🚀 Quick Start BloGSSFTTrainer
 
 ```python
 from forgetnet import BloGSSFTTrainer
@@ -59,6 +59,95 @@ trainer = BloGSSFTTrainer(
 # Train your model with privacy guarantees
 trainer.train()
 ```
+
+## 🚀 Quick Start with Privacy Engine and ResNet
+
+Here's how to use the BloGS Privacy Engine with a ResNet model for MNIST classification:
+
+```python
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torchvision import datasets, transforms
+from torchvision.models import resnet18
+from torch.utils.data import DataLoader
+from forgetnet import BloGSPrivacyEngine
+
+# Modify ResNet18 for MNIST (1 channel input instead of 3)
+def mnist_resnet18():
+    model = resnet18()
+    model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+    model.fc = nn.Linear(model.fc.in_features, 10)  # 10 classes for MNIST
+    return model
+
+# Hyperparameters
+batch_size = 64
+learning_rate = 0.01
+epochs = 10
+target_epsilon = 1.0
+delta = 1e-5
+clip_value = 1.0
+
+# Device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# Load MNIST dataset
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.1307,), (0.3081,))
+])
+train_dataset = datasets.MNIST('./data', train=True, download=True, transform=transform)
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+
+# Calculate total_iterations based on dataset size
+total_iterations = (len(train_dataset) // batch_size) * epochs
+
+# Initialize model
+model = mnist_resnet18().to(device)
+
+# Initialize optimizer
+optimizer = optim.SGD(model.parameters(), lr=learning_rate)
+
+# Wrap the optimizer with the PrivacyEngine
+privacy_engine = BloGSPrivacyEngine(
+    optimizer=optimizer,
+    model=model,
+    target_epsilon=target_epsilon,
+    delta=delta,
+    clip_value=clip_value,
+    steps=total_iterations,
+    batch_size=batch_size
+)
+
+# Training loop
+model.train()
+for epoch in range(epochs):
+    for batch_idx, (data, target) in enumerate(train_loader):
+        data, target = data.to(device), target.to(device)
+        privacy_engine.zero_grad()
+        output = model(data)
+        loss = nn.functional.cross_entropy(output, target)
+        loss.backward()
+
+        epsilon_spent, delta = privacy_engine.step()
+
+        if batch_idx % 100 == 0:
+            print(f'Epoch {epoch}, Batch {batch_idx}, Loss: {loss.item():.4f}, Epsilon: {epsilon_spent:.4f}')
+
+# Get total privacy spent after training
+total_epsilon_spent = privacy_engine.get_privacy_spent()
+print(f"Total privacy spent: ε = {total_epsilon_spent:.4f}")
+```
+
+This example demonstrates:
+
+1. Setting up a ResNet18 model modified for MNIST
+2. Loading the MNIST dataset
+3. Initializing the PrivacyEngine with the model and optimizer
+4. Training the model with privacy-preserving gradient updates
+5. Monitoring privacy budget expenditure during training
+
+Adjust hyperparameters as needed for your specific use case.
 
 ## 📚 How It Works
 

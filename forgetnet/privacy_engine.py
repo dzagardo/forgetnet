@@ -5,6 +5,7 @@ import torch.optim as optim
 import torch.nn as nn
 from .dp import DPShuffleGenerator
 import logging
+from transformers import modeling_utils
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +15,7 @@ class BloGSPrivacyEngine:
                  steps: int, batch_size: int):
         self.optimizer = optimizer
         self.model = model
-        self.dp_generator = DPShuffleGenerator(
+        self.generator = DPShuffleGenerator(
             model=model,
             target_epsilon=target_epsilon,
             delta=delta,
@@ -22,33 +23,116 @@ class BloGSPrivacyEngine:
             steps=steps,
             batch_size=batch_size
         )
-        
-    def step(self):
-        try:
-            with torch.no_grad():
-                grads = [p.grad for p in self.model.parameters() if p.grad is not None]
-                if not grads:
-                    logger.warning("No gradients found. Skipping privacy step.")
-                    return 0, 0
+        self.module_to_name_map = self._create_module_to_name_map()
 
-                private_grads, epsilon_spent, delta = self.dp_generator.generate(grads)
+    def _is_supported_module(self, module):
+        return isinstance(module, (
+            # Common layers
+            nn.Linear,
+            nn.Conv1d,
+            nn.Conv2d,
+            nn.Conv3d,
+            nn.ConvTranspose1d,
+            nn.ConvTranspose2d,
+            nn.ConvTranspose3d,
+            nn.Embedding,
+            
+            # Normalization layers
+            nn.LayerNorm,
+            nn.BatchNorm1d,
+            nn.BatchNorm2d,
+            nn.BatchNorm3d,
+            nn.GroupNorm,
+            nn.InstanceNorm1d,
+            nn.InstanceNorm2d,
+            nn.InstanceNorm3d,
+            
+            # Recurrent layers
+            nn.LSTM,
+            nn.GRU,
+            nn.RNN,
+            
+            # Attention mechanisms
+            nn.MultiheadAttention,
+            
+            # Activation functions with parameters
+            nn.PReLU,
+            
+            # Transformer-specific modules
+            modeling_utils.Conv1D,
+        ))
+
+    def _create_module_to_name_map(self):
+        module_to_name_map = {}
+        for name, module in self.model.named_modules():
+            if isinstance(module, (
+                # Common layers
+                nn.Linear,
+                nn.Conv1d,
+                nn.Conv2d,
+                nn.Conv3d,
+                nn.ConvTranspose1d,
+                nn.ConvTranspose2d,
+                nn.ConvTranspose3d,
+                nn.Embedding,
                 
-                for param, private_grad in zip(self.model.parameters(), private_grads):
-                    if param.grad is not None:
-                        if isinstance(private_grad, torch.Tensor):
-                            if private_grad.shape != param.grad.shape:
-                                logger.warning(f"Shape mismatch: param.grad.shape = {param.grad.shape}, private_grad.shape = {private_grad.shape}")
-                                private_grad = private_grad.reshape(param.grad.shape)
-                            param.grad.data = private_grad
-                        else:
-                            logger.error(f"Unexpected private_grad type: {type(private_grad)}")
-                            raise TypeError(f"Expected torch.Tensor, got {type(private_grad)}")
+                # Normalization layers
+                nn.LayerNorm,
+                nn.BatchNorm1d,
+                nn.BatchNorm2d,
+                nn.BatchNorm3d,
+                nn.GroupNorm,
+                nn.InstanceNorm1d,
+                nn.InstanceNorm2d,
+                nn.InstanceNorm3d,
+                
+                # Recurrent layers
+                nn.LSTM,
+                nn.GRU,
+                nn.RNN,
+                
+                # Attention mechanisms
+                nn.MultiheadAttention,
+                
+                # Activation functions with parameters
+                nn.PReLU,
+                
+                # Transformer-specific modules
+                modeling_utils.Conv1D,
+            )):
+                module_to_name_map[module] = name
+        return module_to_name_map
 
-            self.optimizer.step()
-            return epsilon_spent, delta
-        except Exception as e:
-            logger.error(f"Error in privacy step: {str(e)}")
-            raise
+    def step(self):
+        with torch.no_grad():
+            grads_modules_names = []
+            for module in self.model.modules():
+                if self._is_supported_module(module):
+                    for param in module.parameters():
+                        if param.grad is not None:
+                            grads_modules_names.append((param.grad, module, self.module_to_name_map[module]))
+            
+            grads, modules, layer_names = zip(*grads_modules_names)
+          
+            private_grads, epsilon_spent, delta = self.generator.generate(list(grads), list(modules))
+            
+            index = 0
+            for module in self.model.modules():
+                if self._is_supported_module(module):
+                    for param in module.parameters():
+                        if param.grad is not None:
+                            private_grad = private_grads[index]
+                            if isinstance(private_grad, torch.Tensor):
+                                if private_grad.shape != param.grad.shape:
+                                    print(f"Shape mismatch: param.grad.shape = {param.grad.shape}, private_grad.shape = {private_grad.shape}")
+                                    private_grad = private_grad.reshape(param.grad.shape)
+                                param.grad.data = private_grad
+                            else:
+                                print(f"Unexpected private_grad type: {type(private_grad)}")
+                            index += 1
+
+        self.optimizer.step()
+        return epsilon_spent, delta
 
     def zero_grad(self):
         self.optimizer.zero_grad()
