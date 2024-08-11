@@ -16,6 +16,7 @@ setup(
         'scipy',
         'transformers',
         'torchvision',
+        'tqdm',
     ],
     author='David Zagardo',
     author_email='dave@greenwillowstudios.com',

@@ -585,14 +585,16 @@ class ImageMIA(LanguageMIA):
         features = []
         dataloader = DataLoader(dataset, batch_size=32, shuffle=False)
         model.eval()
-        model.to(model.device)
+        
+        # Get the device from the model's parameters
+        device = next(model.parameters()).device
 
         total_samples = len(dataset)
         print(f"Total number of samples to process: {total_samples}")
 
         for i, (data, _) in enumerate(dataloader):
             with torch.enable_grad():
-                data = data.to(model.device)
+                data = data.to(device)
                 
                 # Get embeddings (assuming the model has a feature extractor)
                 if hasattr(model, 'get_input_embeddings'):
