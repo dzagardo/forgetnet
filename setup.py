@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='forgetnet',
-    version='0.1.13',
+    version='0.1.14',
     packages=find_packages(exclude=['tests']),
     install_requires=[
         'numpy',
@@ -15,6 +15,7 @@ setup(
         'seaborn',
         'scipy',
         'transformers',
+        'torchvision',
     ],
     author='David Zagardo',
     author_email='dave@greenwillowstudios.com',
@@ -32,6 +33,7 @@ setup(
         'forgetnet.privacy_mechanisms': [
             'dpshuffle = forgetnet.dp.dp_shuffle:DPShuffleGenerator',
             'languagemia = forgetnet.dp.membership_inference:LanguageMIA',
+            'imagemia = forgetnet.dp.membership_inference:ImageMIA',
         ],
     },
 )
