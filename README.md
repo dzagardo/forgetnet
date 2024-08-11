@@ -141,7 +141,7 @@ DP-BloGS introduces a probabilistic approach to gradient noise through block-wis
 
 1. 📊 Divide gradients into blocks
 2. 🔀 Shuffle blocks randomly
-3. 📏 Apply parameter-specific block sizes
+3. 📏 Apply layer-specific block sizes
 4. ✂️ Use batch layer clipping
 5. 🧮 Accumulate gradients
 
@@ -163,6 +163,73 @@ Results show competitive or better performance compared to DP-SGD in terms of:
 - 🎭 Privacy guarantees
 - 📊 Model utility
 
+## 🕵️ Membership Inference Attack (MIA)
+
+ForgetNet now includes a powerful Membership Inference Attack tool to assess the privacy risks of your language models:
+
+### 🚀 Quick Start
+
+```python
+from forgetnet import LanguageMIA
+
+# Initialize the MIA tool
+mia = LanguageMIA()
+
+# Perform the attack
+results = mia.attack(train_dataset, test_dataset, model, tokenizer)
+
+# Print the results
+print(f"ROC AUC: {results['roc_auc']:.4f}")
+print(f"Precision-Recall AUC: {results['precision_recall_auc']:.4f}")
+print(f"Best model: {results['best_model']}")
+print(f"Optimal threshold: {results['optimal_threshold']:.4f}")
+```
+
+### 📊 Comprehensive Evaluation
+
+The `LanguageMIA` class provides a detailed analysis of your model's vulnerability to membership inference attacks:
+
+- 🎯 ROC AUC: Measures the overall performance of the attack
+- 📈 Precision-Recall AUC: Assesses the trade-off between precision and recall
+- 🧠 Best Model: Identifies the most effective attack model
+- 🔍 Optimal Threshold: Determines the best decision threshold for classification
+- 📉 Standard and Optimal Metrics: Provides accuracy, precision, recall, and F1 score for both standard (0.5) and optimal thresholds
+
+### 🛠️ Integration with Model Evaluation
+
+Easily incorporate MIA into your model evaluation pipeline:
+
+```python
+def evaluate_model(model, train_dataset, test_dataset, tokenizer):
+    # Perform membership inference attack
+    mia = LanguageMIA()
+    mia_results = mia.attack(train_dataset, test_dataset, model, tokenizer)
+
+    # Evaluate perplexity (assuming a function evaluate_perplexity exists)
+    perplexity = evaluate_perplexity(model, test_dataset, tokenizer)
+
+    # Combine results
+    results = {
+        'perplexity': perplexity,
+        'mia_results': mia_results,
+    }
+
+    return results
+
+# Usage
+evaluation_results = evaluate_model(model, train_dataset, test_dataset, tokenizer)
+print(f"Model Perplexity: {evaluation_results['perplexity']:.2f}")
+print(f"MIA ROC-AUC: {evaluation_results['mia_results']['roc_auc']:.4f}")
+```
+
+### 🎯 Benefits
+
+- 🔒 Quantify Privacy Risks: Understand your model's vulnerability to membership inference attacks
+- 📈 Track Improvements: Monitor how privacy-preserving techniques affect model privacy
+- 🚀 Optimize Trade-offs: Fine-tune the balance between utility and privacy in your models
+
+Use the `LanguageMIA` tool to ensure your language models are both powerful and privacy-preserving!
+
 ## 📄 Citation
 
 If you use ForgetNet in your research, please cite my paper:
@@ -171,8 +238,9 @@ If you use ForgetNet in your research, please cite my paper:
 @article{zagardo2024dpblogs,
   title={Differentially Private Block-wise Gradient Shuffle for Deep Learning},
   author={Zagardo, David},
-  journal={arXiv preprint arXiv:2024.XXXXX},
-  year={2024}
+  journal={arXiv preprint arXiv:2407.21347},
+  year={2024},
+  note={arXiv:2407.21347 [cs.LG]}
 }
 ```
 
