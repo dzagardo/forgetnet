@@ -14,3 +14,4 @@ forgetnet.egg-info/requires.txt
 forgetnet.egg-info/top_level.txt
 forgetnet/dp/__init__.py
 forgetnet/dp/dp_shuffle.py
+forgetnet/dp/membership_inference.py

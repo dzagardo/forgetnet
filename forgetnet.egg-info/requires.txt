@@ -1,3 +1,9 @@
 numpy
-torch
+torch>=1.0
 trl
+scikit-learn
+imbalanced-learn
+matplotlib
+seaborn
+scipy
+transformers

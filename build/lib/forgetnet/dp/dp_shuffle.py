@@ -4,6 +4,8 @@ import math
 from typing import List, Tuple
 import torch
 from ..core import PrivacyMechanism
+from transformers import modeling_utils
+import torch.nn as nn
 
 class DPShufflePrivacyAccountant:
     def __init__(self, model, target_epsilon, delta, steps, clip_value, batch_size):
@@ -13,13 +15,53 @@ class DPShufflePrivacyAccountant:
         self.steps = steps
         self.clip_value = clip_value
         self.batch_size = batch_size
-        self.parameter_dimensions = [p.numel() for p in model.parameters() if p.requires_grad]
-        self.total_parameters = sum(self.parameter_dimensions)
+        self.module_dimensions = [sum(p.numel() for p in module.parameters() if p.requires_grad)
+                                  for module in model.modules() if self._is_supported_module(module)]
+        self.total_parameters = sum(self.module_dimensions)
         self.block_sizes = None
+
+    def _is_supported_module(self, module):
+        return isinstance(module, (
+            # Common layers
+            nn.Linear,
+            nn.Conv1d,
+            nn.Conv2d,
+            nn.Conv3d,
+            nn.ConvTranspose1d,
+            nn.ConvTranspose2d,
+            nn.ConvTranspose3d,
+            nn.Embedding,
+            
+            # Normalization layers
+            nn.LayerNorm,
+            nn.BatchNorm1d,
+            nn.BatchNorm2d,
+            nn.BatchNorm3d,
+            nn.GroupNorm,
+            nn.InstanceNorm1d,
+            nn.InstanceNorm2d,
+            nn.InstanceNorm3d,
+            
+            # Recurrent layers
+            nn.LSTM,
+            nn.GRU,
+            nn.RNN,
+            
+            # Attention mechanisms
+            nn.MultiheadAttention,
+            
+            # Activation functions with parameters
+            nn.PReLU,
+            
+            # Transformer-specific modules
+            modeling_utils.Conv1D,
+        ))
 
     def compute_epsilon_i(self, d_i: int, block_size: int) -> float:
         C = self.clip_value
-        B = self.batch_size
+
+        if d_i == 0:
+            return 0.0
 
         epsilon_1 = 2 * math.log(1 + d_i * (math.exp(2 * C / (math.sqrt(d_i))) - 1))
         epsilon_2 = 2 * math.log(1 + (block_size / d_i) * (math.exp(2 * C * math.sqrt(block_size / d_i)) - 1))
@@ -28,7 +70,7 @@ class DPShufflePrivacyAccountant:
 
     def compute_total_privacy(self, block_sizes: List[int]) -> float:
         epsilons = [self.compute_epsilon_i(d_i, block_size) 
-                    for d_i, block_size in zip(self.parameter_dimensions, block_sizes)]
+                    for d_i, block_size in zip(self.module_dimensions, block_sizes)]
         
         epsilon_total_per_step = sum(epsilons)
         
@@ -43,7 +85,7 @@ class DPShufflePrivacyAccountant:
     def find_optimal_block_sizes(self) -> List[int]:
         def binary_search_global(target_epsilon_per_group):
             block_sizes = []
-            for d_i in self.parameter_dimensions:
+            for d_i in self.module_dimensions:
                 low, high = 1, d_i - 1
                 best_block_size = low
                 while low <= high:
@@ -92,16 +134,58 @@ class DPShuffleGenerator(PrivacyMechanism):
         self.clip_value = clip_value
         self.accountant = DPShufflePrivacyAccountant(model, target_epsilon, delta, steps, clip_value, batch_size)
         self.optimal_block_sizes = self.accountant.optimize_parameters()
+        self.module_to_block_size = {module: block_size for module, block_size in zip(self._get_supported_modules(), self.optimal_block_sizes)}
         print(f"Optimal block sizes: {self.optimal_block_sizes}")
         self.epsilon_spent = 0
+
+    def _get_supported_modules(self):
+        return [module for module in self.model.modules() if self._is_supported_module(module)]
+
+    def _is_supported_module(self, module):
+        return isinstance(module, (
+            # Common layers
+            nn.Linear,
+            nn.Conv1d,
+            nn.Conv2d,
+            nn.Conv3d,
+            nn.ConvTranspose1d,
+            nn.ConvTranspose2d,
+            nn.ConvTranspose3d,
+            nn.Embedding,
+            
+            # Normalization layers
+            nn.LayerNorm,
+            nn.BatchNorm1d,
+            nn.BatchNorm2d,
+            nn.BatchNorm3d,
+            nn.GroupNorm,
+            nn.InstanceNorm1d,
+            nn.InstanceNorm2d,
+            nn.InstanceNorm3d,
+            
+            # Recurrent layers
+            nn.LSTM,
+            nn.GRU,
+            nn.RNN,
+            
+            # Attention mechanisms
+            nn.MultiheadAttention,
+            
+            # Activation functions with parameters
+            nn.PReLU,
+            
+            # Transformer-specific modules
+            modeling_utils.Conv1D,
+        ))
 
     def apply(self, gradients: List[torch.Tensor]) -> List[torch.Tensor]:
         private_grads, _, _ = self.generate(gradients)
         return private_grads
 
-    def generate(self, gradients: List[torch.Tensor]) -> Tuple[List[torch.Tensor], float, float]:
+    def generate(self, gradients: List[torch.Tensor], modules: List[nn.Module]) -> Tuple[List[torch.Tensor], float, float]:
         private_grads = []
-        for grad, block_size in zip(gradients, self.optimal_block_sizes):
+        for grad, module in zip(gradients, modules):
+            block_size = self.module_to_block_size[module]
             clipped_grad = self.clip_gradient(grad)
             private_grad = self.shuffle(clipped_grad, block_size)
             private_grads.append(private_grad)

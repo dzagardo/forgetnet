@@ -3,16 +3,22 @@ from setuptools import setup, find_packages
 
 setup(
     name='forgetnet',
-    version='0.1.12',
+    version='0.1.13',
     packages=find_packages(exclude=['tests']),
     install_requires=[
         'numpy',
-        'torch',
+        'torch>=1.0',
         'trl',
+        'scikit-learn',
+        'imbalanced-learn',
+        'matplotlib',
+        'seaborn',
+        'scipy',
+        'transformers',
     ],
     author='David Zagardo',
     author_email='dave@greenwillowstudios.com',
-    description='A package for applying differential privacy to model training using block-level gradient shuffling',
+    description='A package for applying differential privacy to model training using gradient shuffling and membership inference attack detection.',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     url='https://github.com/dzagardo/forgetnet',
@@ -25,6 +31,7 @@ setup(
     entry_points={
         'forgetnet.privacy_mechanisms': [
             'dpshuffle = forgetnet.dp.dp_shuffle:DPShuffleGenerator',
+            'languagemia = forgetnet.dp.membership_inference:LanguageMIA',
         ],
     },
 )

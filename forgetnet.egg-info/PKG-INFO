@@ -1,7 +1,7 @@
 Metadata-Version: 2.1
 Name: forgetnet
-Version: 0.1.11
-Summary: A package for applying differential privacy to model training using block-level gradient shuffling
+Version: 0.1.13
+Summary: A package for applying differential privacy to model training using gradient shuffling and membership inference attack detection.
 Home-page: https://github.com/dzagardo/forgetnet
 Author: David Zagardo
 Author-email: dave@greenwillowstudios.com
