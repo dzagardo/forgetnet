@@ -1,3 +1,4 @@
 [forgetnet.privacy_mechanisms]
 dpshuffle = forgetnet.dp.dp_shuffle:DPShuffleGenerator
+imagemia = forgetnet.dp.membership_inference:ImageMIA
 languagemia = forgetnet.dp.membership_inference:LanguageMIA
