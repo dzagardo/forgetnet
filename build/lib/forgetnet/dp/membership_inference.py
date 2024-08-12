@@ -25,6 +25,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from torch.utils.data import DataLoader
 import random
+import torch
+import torch.nn.functional as F
+import math
+from tqdm import tqdm
 
 def get_confidence_scores(dataset, model, tokenizer):
     model.eval()
@@ -235,6 +239,9 @@ class LanguageMIA:
         total_samples = len(dataset)
         print(f"Total number of samples to process: {total_samples}")
 
+        # Create TQDM progress bar
+        pbar = tqdm(total=total_samples, desc="Extracting features")
+
         for i, batch in enumerate(dataset):
             with torch.enable_grad():
                 text = batch['text'] if isinstance(batch, dict) and 'text' in batch else batch
@@ -246,7 +253,7 @@ class LanguageMIA:
 
                 outputs = model(inputs_embeds=embeddings, attention_mask=inputs['attention_mask'])
                 logits = outputs.logits if hasattr(outputs, 'logits') else outputs[0]
-                probs = torch.softmax(logits, dim=-1)
+                probs = F.softmax(logits, dim=-1)
 
                 # Existing features
                 max_prob = torch.max(probs, dim=-1)[0].mean().item()
@@ -257,24 +264,24 @@ class LanguageMIA:
 
                 # New features
                 # 1. Data Augmentation Responses
-                augmented_text = simple_augment_text(text)
-                aug_consistency = compute_augmentation_consistency(model, tokenizer, text, augmented_text, max_length)
+                augmented_text = self.simple_augment_text(text)
+                aug_consistency = self.compute_augmentation_consistency(model, tokenizer, text, augmented_text, max_length)
 
                 # 2. Memorization Metrics
-                conf_error_corr = compute_confidence_error_correlation(logits, inputs['input_ids'])
-                loss = torch.nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), inputs['input_ids'].view(-1))
-                mem_score = compute_memorization_score(loss, loss.detach())
+                conf_error_corr = self.compute_confidence_error_correlation(logits, inputs['input_ids'])
+                loss = F.cross_entropy(logits.view(-1, logits.size(-1)), inputs['input_ids'].view(-1))
+                mem_score = self.compute_memorization_score(loss, loss.detach())
 
                 # 3. Generalization Indicators
-                logit_margin = compute_logit_margin(logits)
+                logit_margin = self.compute_logit_margin(logits)
 
                 # 4. Contrastive Learning Features
                 other_inputs = tokenizer(random.choice(dataset)['text'], return_tensors='pt', truncation=True, max_length=max_length).to(model.device)
                 other_embeddings = embedding_layer(other_inputs['input_ids']).detach()
-                contrastive_loss = compute_contrastive_loss(embeddings, other_embeddings)
+                contrastive_loss = self.compute_contrastive_loss(embeddings, other_embeddings)
 
                 # 5. Out of Distribution Detection Scores
-                ood_entropy, ood_max_prob = compute_ood_score(logits, probs)
+                ood_entropy, ood_max_prob = self.compute_ood_score(logits, probs)
 
                 # Existing additional features
                 top_k = 5
@@ -316,8 +323,11 @@ class LanguageMIA:
                 del embeddings, outputs, logits, probs
                 torch.cuda.empty_cache()
 
-            if (i + 1) % 50 == 0 or (i + 1) == total_samples:
-                print(f"Processed {i + 1}/{total_samples} samples")
+            # Update TQDM progress bar
+            pbar.update(1)
+
+        # Close TQDM progress bar
+        pbar.close()
 
         print(f"Total number of features extracted: {len(features[0])}")
 
@@ -563,126 +573,145 @@ class ImageMIA(LanguageMIA):
     # Override or adapt other helper methods as needed
     def compute_confidence_error_correlation(self, logits, true_labels):
         # Adapt for image data if necessary
-        return super().compute_confidence_error_correlation(logits, true_labels)
+        return compute_confidence_error_correlation(logits, true_labels)
 
     def compute_memorization_score(self, loss, batch_loss):
         # This might not need adaptation for images
-        return super().compute_memorization_score(loss, batch_loss)
+        return compute_memorization_score(loss, batch_loss)
 
     def compute_logit_margin(self, logits):
         # This might not need adaptation for images
-        return super().compute_logit_margin(logits)
+        return compute_logit_margin(logits)
 
     def compute_contrastive_loss(self, embeddings, other_embeddings, temperature=0.5):
-        # Adapt for image embeddings if necessary
-        return super().compute_contrastive_loss(embeddings, other_embeddings, temperature)
+        try:
+            # Ensure both tensors are on the same device
+            device = embeddings.device
+            other_embeddings = other_embeddings.to(device)
+
+            # Flatten the embeddings if they are 3D or 4D (for image data)
+            if embeddings.dim() > 2:
+                embeddings = embeddings.view(embeddings.size(0), -1)
+            if other_embeddings.dim() > 2:
+                other_embeddings = other_embeddings.view(other_embeddings.size(0), -1)
+
+            # Normalize the embeddings
+            embeddings = F.normalize(embeddings, p=2, dim=1)
+            other_embeddings = F.normalize(other_embeddings, p=2, dim=1)
+
+            # Compute similarity
+            similarity = torch.mm(embeddings, other_embeddings.t()) / temperature
+            
+            # Create labels (each sample is similar to itself)
+            labels = torch.arange(similarity.size(0), device=device)
+
+            # Compute loss
+            loss = F.cross_entropy(similarity, labels)
+            return loss.item()
+        except Exception as e:
+            print(f"Error in compute_contrastive_loss: {str(e)}")
+            print(f"Embeddings shape: {embeddings.shape}, Other embeddings shape: {other_embeddings.shape}")
+            return 0.0  # Return a default value to allow the process to continue
 
     def compute_ood_score(self, logits, probs):
-        # This might not need adaptation for images
-        return super().compute_ood_score(logits, probs)
+        try:
+            # Move computations to CPU
+            entropy = -torch.sum(probs * torch.log(probs + 1e-10), dim=-1).mean().item()
+            max_prob = torch.max(probs, dim=-1)[0].mean().item()
+            return entropy, max_prob
+        except Exception as e:
+            print(f"Error in compute_ood_score: {str(e)}")
+            print(f"Probs shape: {probs.shape}")
+            return 0.0, 0.0  # Return default values
 
     def get_mia_features(self, dataset, model, _, max_length=None):
         features = []
-        dataloader = DataLoader(dataset, batch_size=32, shuffle=False)
+        dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
         model.eval()
         
         # Get the device from the model's parameters
         device = next(model.parameters()).device
+        print(f"Model is on device: {device}")
 
         total_samples = len(dataset)
         print(f"Total number of samples to process: {total_samples}")
 
-        for i, (data, _) in enumerate(dataloader):
-            with torch.enable_grad():
-                data = data.to(device)
-                
-                # Get embeddings (assuming the model has a feature extractor)
-                if hasattr(model, 'get_input_embeddings'):
-                    embedding_layer = model.get_input_embeddings()
-                    embeddings = embedding_layer(data).detach()
-                else:
-                    # If no embedding layer, use the first convolutional layer as feature extractor
-                    first_conv = next(model.modules())
-                    if isinstance(first_conv, torch.nn.Conv2d):
-                        embeddings = first_conv(data)
-                    else:
-                        embeddings = data  # Fallback to using raw input if no suitable layer found
-                
-                embeddings = embeddings.clone().requires_grad_(True)
+        # Use tqdm for progress bar
+        with tqdm(total=total_samples, desc="Extracting features") as pbar:
+            for data, labels in dataloader:
+                try:
+                    with torch.no_grad():
+                        data = data.to(device)
+                        labels = labels.to(device)
+                        
+                        if hasattr(model, 'get_input_embeddings'):
+                            embedding_layer = model.get_input_embeddings()
+                            embeddings = embedding_layer(data)
+                        else:
+                            first_conv = next(model.modules())
+                            if isinstance(first_conv, torch.nn.Conv2d):
+                                embeddings = first_conv(data)
+                            else:
+                                embeddings = data
 
-                outputs = model(embeddings)
-                logits = outputs.logits if hasattr(outputs, 'logits') else outputs
-                probs = torch.softmax(logits, dim=1)
+                        outputs = model(embeddings)
+                        logits = outputs.logits if hasattr(outputs, 'logits') else outputs
+                        probs = F.softmax(logits, dim=1)
 
-                batch_features = []
-                for prob in probs:
-                    # Existing features
-                    max_prob = torch.max(prob).item()
-                    entropy = (-prob * torch.log(prob + 1e-10)).sum().item()
-                    perplexity = torch.exp(entropy)
-                    std_prob = torch.std(prob).item()
-                    kl_uniform = (prob * torch.log(prob * prob.size(0) + 1e-10)).sum().item()
+                        sample_features = self.compute_sample_features(probs[0], logits[0], embeddings, data, model)
+                        features.append(sample_features)
 
-                    # Additional features
-                    top_k = 5
-                    top_k_probs, _ = torch.topk(prob, k=top_k)
-                    top_k_entropy = (-top_k_probs * torch.log(top_k_probs + 1e-10)).sum().item()
-                    top_k_ppl = torch.exp((-top_k_probs * torch.log(top_k_probs + 1e-10)).sum()).item()
+                except Exception as e:
+                    print(f"Error processing sample: {str(e)}")
+                    continue  # Skip this sample and continue with the next one
 
-                    sorted_probs, _ = torch.sort(prob, descending=True)
-                    uncertainty = (sorted_probs[0] - sorted_probs[1]).item()
-
-                    # Adapt other features
-                    # 1. Data Augmentation Responses (simplified for images)
-                    augmented_data = self.simple_augment_image(data)
-                    aug_outputs = model(augmented_data)
-                    aug_probs = torch.softmax(aug_outputs.logits if hasattr(aug_outputs, 'logits') else aug_outputs, dim=1)
-                    aug_consistency = torch.mean(torch.abs(probs - aug_probs)).item()
-
-                    # 2. Memorization Metrics
-                    conf_error_corr = self.compute_confidence_error_correlation(logits, torch.argmax(probs, dim=1))
-                    loss = torch.nn.functional.cross_entropy(logits, torch.argmax(probs, dim=1))
-                    mem_score = self.compute_memorization_score(loss, loss.detach())
-
-                    # 3. Generalization Indicators
-                    logit_margin = self.compute_logit_margin(logits)
-
-                    # 4. Contrastive Learning Features
-                    other_data = random.choice(dataset)[0].unsqueeze(0).to(model.device)
-                    other_embeddings = model.get_input_embeddings()(other_data) if hasattr(model, 'get_input_embeddings') else other_data
-                    contrastive_loss = self.compute_contrastive_loss(embeddings, other_embeddings)
-
-                    # 5. Out of Distribution Detection Scores
-                    ood_entropy, ood_max_prob = self.compute_ood_score(logits, probs)
-
-                    sample_features = [
-                        max_prob, entropy, perplexity, std_prob, kl_uniform,
-                        top_k_entropy, top_k_ppl, uncertainty, aug_consistency,
-                        conf_error_corr, mem_score, logit_margin,
-                        contrastive_loss, ood_entropy, ood_max_prob
-                    ]
-
-                    batch_features.append(sample_features)
-
-                # Compute gradient norms
-                loss = torch.mean(torch.sum(-probs * torch.log(probs + 1e-10), dim=1))
-                loss.backward()
-
-                layer_grad_norms = []
-                for name, param in model.named_parameters():
-                    if param.grad is not None:
-                        layer_grad_norms.append(torch.norm(param.grad).item())
-
-                for sample_features in batch_features:
-                    sample_features.extend(layer_grad_norms)
-
-                features.extend(batch_features)
-
-                model.zero_grad()
-
-            if (i + 1) % 10 == 0 or (i + 1) * dataloader.batch_size >= total_samples:
-                print(f"Processed {min((i + 1) * dataloader.batch_size, total_samples)}/{total_samples} samples")
+                pbar.update(1)  # Update progress bar
 
         print(f"Total number of features extracted: {len(features[0])}")
 
         return np.array(features)
+
+    def compute_sample_features(self, prob, logits, embeddings, data, model):
+        # Existing features
+        max_prob = torch.max(prob).item()
+        entropy = (-prob * torch.log(prob + 1e-10)).sum().item()
+        perplexity = math.exp(entropy)
+        std_prob = torch.std(prob).item()
+        kl_uniform = (prob * torch.log(prob * prob.size(0) + 1e-10)).sum().item()
+
+        # Additional features
+        top_k = 5
+        top_k_probs, _ = torch.topk(prob, k=top_k)
+        top_k_entropy = (-top_k_probs * torch.log(top_k_probs + 1e-10)).sum().item()
+        top_k_ppl = math.exp((-top_k_probs * torch.log(top_k_probs + 1e-10)).sum().item())
+
+        sorted_probs, _ = torch.sort(prob, descending=True)
+        uncertainty = (sorted_probs[0] - sorted_probs[1]).item()
+
+        # Adapt other features
+        aug_consistency = self.compute_augmentation_consistency(data, model)
+        conf_error_corr = self.compute_confidence_error_correlation(logits.unsqueeze(0), torch.argmax(prob).unsqueeze(0))
+        loss = F.cross_entropy(logits.unsqueeze(0), torch.argmax(prob).unsqueeze(0))
+        mem_score = self.compute_memorization_score(loss, loss.detach())
+        logit_margin = self.compute_logit_margin(logits.unsqueeze(0))
+        
+        # Skip contrastive loss for now as it requires another forward pass
+        contrastive_loss = 0.0
+        
+        ood_entropy, ood_max_prob = self.compute_ood_score(logits.unsqueeze(0), prob.unsqueeze(0))
+
+        return [
+            max_prob, entropy, perplexity, std_prob, kl_uniform,
+            top_k_entropy, top_k_ppl, uncertainty, aug_consistency,
+            conf_error_corr, mem_score, logit_margin,
+            contrastive_loss, ood_entropy, ood_max_prob
+        ]
+
+    def compute_augmentation_consistency(self, data, model):
+        augmented_data = self.simple_augment_image(data)
+        with torch.no_grad():
+            aug_outputs = model(augmented_data)
+            aug_probs = F.softmax(aug_outputs.logits if hasattr(aug_outputs, 'logits') else aug_outputs, dim=1)
+            original_outputs = model(data)
+            original_probs = F.softmax(original_outputs.logits if hasattr(original_outputs, 'logits') else original_outputs, dim=1)
+        return torch.mean(torch.abs(original_probs - aug_probs)).item()

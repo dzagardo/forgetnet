@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='forgetnet',
-    version='0.1.16',
+    version='0.1.17',
     packages=find_packages(exclude=['tests']),
     install_requires=[
         'numpy',
