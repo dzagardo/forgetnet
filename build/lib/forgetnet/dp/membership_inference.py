@@ -264,13 +264,13 @@ class LanguageMIA:
 
                 # New features
                 # 1. Data Augmentation Responses
-                augmented_text = self.simple_augment_text(text)
-                aug_consistency = self.compute_augmentation_consistency(model, tokenizer, text, augmented_text, max_length)
+                augmented_text = simple_augment_text(text)
+                aug_consistency = compute_augmentation_consistency(model, tokenizer, text, augmented_text, max_length)
 
                 # 2. Memorization Metrics
-                conf_error_corr = self.compute_confidence_error_correlation(logits, inputs['input_ids'])
+                conf_error_corr = compute_confidence_error_correlation(logits, inputs['input_ids'])
                 loss = F.cross_entropy(logits.view(-1, logits.size(-1)), inputs['input_ids'].view(-1))
-                mem_score = self.compute_memorization_score(loss, loss.detach())
+                mem_score = compute_memorization_score(loss, loss.detach())
 
                 # 3. Generalization Indicators
                 logit_margin = self.compute_logit_margin(logits)
@@ -278,10 +278,10 @@ class LanguageMIA:
                 # 4. Contrastive Learning Features
                 other_inputs = tokenizer(random.choice(dataset)['text'], return_tensors='pt', truncation=True, max_length=max_length).to(model.device)
                 other_embeddings = embedding_layer(other_inputs['input_ids']).detach()
-                contrastive_loss = self.compute_contrastive_loss(embeddings, other_embeddings)
+                contrastive_loss = compute_contrastive_loss(embeddings, other_embeddings)
 
                 # 5. Out of Distribution Detection Scores
-                ood_entropy, ood_max_prob = self.compute_ood_score(logits, probs)
+                ood_entropy, ood_max_prob = compute_ood_score(logits, probs)
 
                 # Existing additional features
                 top_k = 5
@@ -341,15 +341,15 @@ class LanguageMIA:
         train_features = self.get_mia_features(train_dataset, model, tokenizer, max_length=512)
         test_features = self.get_mia_features(test_dataset, model, tokenizer, max_length=512)
 
-        print(f"Shape of train_features: {train_features.shape}")
-        print(f"Shape of test_features: {test_features.shape}")
+        # print(f"Shape of train_features: {train_features.shape}")
+        # print(f"Shape of test_features: {test_features.shape}")
 
         # Create labels for all processed samples
         train_labels = np.ones(len(train_dataset))
         test_labels = np.zeros(len(test_dataset))
 
-        print(f"Shape of train_labels: {train_labels.shape}")
-        print(f"Shape of test_labels: {test_labels.shape}")
+        # print(f"Shape of train_labels: {train_labels.shape}")
+        # print(f"Shape of test_labels: {test_labels.shape}")
 
         # Check for any discrepancy between the number of features and labels
         assert train_features.shape[0] == train_labels.shape[0], "Mismatch between train features and labels"
@@ -359,8 +359,8 @@ class LanguageMIA:
         X = np.vstack((train_features, test_features))
         y = np.concatenate((train_labels, test_labels))
 
-        print(f"Shape of X: {X.shape}")
-        print(f"Shape of y: {y.shape}")
+        # print(f"Shape of X: {X.shape}")
+        # print(f"Shape of y: {y.shape}")
 
         unique, counts = np.unique(y, return_counts=True)
         print("Class distribution:", dict(zip(unique, counts)))
