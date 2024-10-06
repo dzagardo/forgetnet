@@ -10,6 +10,7 @@ class BloGSSFTTrainer(SFTTrainer):
         self.delta = kwargs.pop('delta', 1e-5)
         self.clip_value = kwargs.pop('clip_value', 1.0)
         self.neftune_noise_alpha = kwargs.pop('neftune_noise_alpha', None)
+        self.dataset_size = kwargs.pop('dataset_size', None)
         super().__init__(*args, **kwargs)
         self.privacy_engine = self._create_privacy_engine()
         self.steps = 0
@@ -21,8 +22,9 @@ class BloGSSFTTrainer(SFTTrainer):
             target_epsilon=self.target_epsilon,
             delta=self.delta,
             steps=self.args.num_train_epochs * (len(self.train_dataset) // effective_batch_size),
-            clip_value=self.clip_value,
-            batch_size=effective_batch_size
+            base_clip_value=self.clip_value,
+            batch_size=effective_batch_size,
+            dataset_size=self.dataset_size,
         )
 
     def training_step(self, model: torch.nn.Module, inputs: Dict[str, Any]) -> torch.Tensor:
@@ -39,10 +41,11 @@ class BloGSSFTTrainer(SFTTrainer):
 
         if (self.steps + 1) % self.args.gradient_accumulation_steps == 0:
             with torch.no_grad():
-                grads = [p.grad for p in model.parameters() if p.grad is not None]
-                private_grads = self.privacy_engine.apply(grads)
+                grads = [p.grad for p in model.parameters()]
+                private_grads, _, _ = self.privacy_engine.generate(grads)
+
                 for param, private_grad in zip(model.parameters(), private_grads):
-                    if param.grad is not None:
+                    if param.grad is not None and private_grad is not None:
                         param.grad.copy_(private_grad)
 
         self.steps += 1
@@ -50,8 +53,11 @@ class BloGSSFTTrainer(SFTTrainer):
 
     def train(self, *args, **kwargs):
         result = super().train(*args, **kwargs)
-        
-        privacy_spent = self.privacy_engine.get_privacy_spent()
-        print(f"Final privacy budget spent: ε = {privacy_spent:.4f}")
-        
+
+        # Get both epsilon and delta
+        epsilon_spent, delta_spent = self.privacy_engine.get_privacy_spent()
+
+        # Format and print each value separately
+        print(f"Final privacy budget spent: ε = {epsilon_spent:.4f}, δ = {delta_spent:.4e}")
+
         return result

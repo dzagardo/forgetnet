@@ -273,7 +273,7 @@ class LanguageMIA:
                 mem_score = compute_memorization_score(loss, loss.detach())
 
                 # 3. Generalization Indicators
-                logit_margin = self.compute_logit_margin(logits)
+                logit_margin = compute_logit_margin(logits)
 
                 # 4. Contrastive Learning Features
                 other_inputs = tokenizer(random.choice(dataset)['text'], return_tensors='pt', truncation=True, max_length=max_length).to(model.device)

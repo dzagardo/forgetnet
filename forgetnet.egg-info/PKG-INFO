@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: forgetnet
-Version: 0.1.17
+Version: 0.1.19
 Summary: A package for applying differential privacy to model training using gradient shuffling and membership inference attack detection.
 Home-page: https://github.com/dzagardo/forgetnet
 Author: David Zagardo
@@ -11,6 +11,17 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: torch>=1.0
+Requires-Dist: trl
+Requires-Dist: scikit-learn
+Requires-Dist: imbalanced-learn
+Requires-Dist: matplotlib
+Requires-Dist: seaborn
+Requires-Dist: scipy
+Requires-Dist: transformers
+Requires-Dist: torchvision
+Requires-Dist: tqdm
 
 # 🛡️ ForgetNet: Differentially Private Block-wise Gradient Shuffle for Deep Learning 🧠
 
