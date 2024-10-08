@@ -185,7 +185,7 @@ class DPShufflePrivacyAccountant:
             c = clip_value
             m = d / beta
 
-            epsilon_i = (c ** 2) * beta / (2 * m)
+            epsilon_i = beta / (2 * m)
             epsilon_i_adjusted = q * epsilon_i
 
             return epsilon_i_adjusted
